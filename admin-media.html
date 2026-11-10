@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Panel Media · El Trotamúsico</title>
+  <style>
+    :root{--black:#080808;--paper:#f4f0e8;--yellow:#ffd21f;--green:#159957}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:#111;font-family:Arial,sans-serif}.top{padding:30px 22px;background:#080808;color:#fff}.wrap{width:min(1100px,calc(100% - 36px));margin:auto}.top small{color:var(--yellow);font-weight:900;letter-spacing:3px}.top h1{margin:8px 0 0;font-size:clamp(34px,6vw,62px)}main{padding:32px 0 60px}.panel{padding:24px;border-radius:22px;background:#fff;box-shadow:0 18px 55px #0001}.login{max-width:480px;margin:auto}.field{display:grid;gap:7px;margin-bottom:14px}.field label{font-weight:800}.field input{min-height:50px;padding:0 15px;border:1px solid #0003;border-radius:12px;font:inherit}.button{min-height:50px;padding:0 22px;border:0;border-radius:999px;background:var(--yellow);color:#000;font-weight:900;cursor:pointer}.button.dark{background:#111;color:#fff}.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:22px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{overflow:hidden;border:1px solid #0002;border-radius:18px}.preview{aspect-ratio:2/3;background:#111}.preview img{width:100%;height:100%;object-fit:contain}.card-body{padding:16px}.pick{display:flex;justify-content:center;align-items:center;min-height:46px;border:2px solid #111;border-radius:999px;font-weight:900;cursor:pointer}.pick input{position:absolute;opacity:0;pointer-events:none}.save-row{display:flex;gap:14px;align-items:center;margin-top:22px}.status{line-height:1.45}.status.ok{color:var(--green);font-weight:800}.status.error{color:#a20d20;font-weight:800}[hidden]{display:none!important}@media(max-width:720px){.grid{grid-template-columns:1fr}.toolbar,.save-row{align-items:stretch;flex-direction:column}.button{width:100%}}
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap"><small>PANEL PRIVADO</small><h1>Fotos de Media</h1></div></header>
+<main class="wrap">
+  <section class="panel login" id="login-panel">
+    <h2>Acceso del cliente</h2>
+    <form id="login-form"><div class="field"><label for="email">Correo</label><input id="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Contraseña</label><input id="password" type="password" autocomplete="current-password" required></div><button class="button" type="submit">Entrar</button></form>
+    <p class="status" id="login-status" role="status"></p>
+  </section>
+  <section class="panel" id="media-panel" hidden>
+    <div class="toolbar"><div><strong>Galería de la web</strong><br><small>Elige una o varias fotografías y guarda los cambios.</small></div><button class="button dark" id="logout" type="button">Cerrar sesión</button></div>
+    <div class="grid">
+      <article class="card"><div class="preview"><img id="preview-1" alt="Foto 1"></div><div class="card-body"><h2>Foto 1</h2><label class="pick">Elegir foto<input id="file-1" type="file" accept="image/*"></label></div></article>
+      <article class="card"><div class="preview"><img id="preview-2" alt="Foto 2"></div><div class="card-body"><h2>Foto 2</h2><label class="pick">Elegir foto<input id="file-2" type="file" accept="image/*"></label></div></article>
+      <article class="card"><div class="preview"><img id="preview-3" alt="Foto 3"></div><div class="card-body"><h2>Foto 3</h2><label class="pick">Elegir foto<input id="file-3" type="file" accept="image/*"></label></div></article>
+    </div>
+    <div class="save-row"><button class="button" id="save" type="button">Guardar cambios</button><div class="status" id="save-status" role="status"></div></div>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  const config=window.TROTAMUSICO_SUPABASE||{};
+  const configured=config.url&&!config.url.startsWith('PON_')&&config.anonKey&&!config.anonKey.startsWith('PON_');
+  const loginStatus=document.querySelector('#login-status'),saveStatus=document.querySelector('#save-status');
+  const setStatus=(el,text,type='')=>{el.textContent=text;el.className=`status ${type}`};
+  if(!configured)setStatus(loginStatus,'El administrador debe completar supabase-config.js antes de usar el panel.','error');
+  const client=configured?supabase.createClient(config.url,config.anonKey):null;
+  const files=[null,null,null];
+  const publicUrl=i=>`${config.url.replace(/\/$/,'')}/storage/v1/object/public/media/media-${i}.jpg?v=${Date.now()}`;
+  const showPanel=async session=>{document.querySelector('#login-panel').hidden=!!session;document.querySelector('#media-panel').hidden=!session;if(session)for(let i=1;i<=3;i++)document.querySelector(`#preview-${i}`).src=publicUrl(i)};
+  if(client)client.auth.getSession().then(({data})=>showPanel(data.session));
+  document.querySelector('#login-form').addEventListener('submit',async event=>{event.preventDefault();if(!client)return;setStatus(loginStatus,'Accediendo…');const {data,error}=await client.auth.signInWithPassword({email:document.querySelector('#email').value,password:document.querySelector('#password').value});if(error)return setStatus(loginStatus,'Correo o contraseña incorrectos.','error');setStatus(loginStatus,'');showPanel(data.session)});
+  document.querySelector('#logout').addEventListener('click',async()=>{await client.auth.signOut();showPanel(null)});
+  for(let i=1;i<=3;i++){const input=document.querySelector(`#file-${i}`),preview=document.querySelector(`#preview-${i}`);input.addEventListener('change',()=>{if(!input.files[0])return;files[i-1]=input.files[0];preview.src=URL.createObjectURL(input.files[0])})}
+  const optimize=file=>new Promise((resolve,reject)=>{const image=new Image(),url=URL.createObjectURL(file);image.onload=()=>{const max=2200,scale=Math.min(1,max/Math.max(image.width,image.height)),canvas=document.createElement('canvas');canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('No se pudo procesar la foto'))},'image/jpeg',.86)};image.onerror=()=>reject(new Error('La foto no es válida'));image.src=url});
+  document.querySelector('#save').addEventListener('click',async()=>{if(files.every(file=>!file))return setStatus(saveStatus,'Elige al menos una fotografía.','error');try{setStatus(saveStatus,'Guardando…');let count=0;for(let i=0;i<3;i++){if(!files[i])continue;const blob=await optimize(files[i]);const {error}=await client.storage.from('media').upload(`media-${i+1}.jpg`,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'60'});if(error)throw error;count++}setStatus(saveStatus,`${count} fotografía${count===1?'':'s'} actualizada${count===1?'':'s'}. La web ya mostrará el cambio.`,'ok')}catch(error){setStatus(saveStatus,`No se pudo guardar: ${error.message}`,'error')}});
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+window.TROTAMUSICO_SUPABASE = {
+  url: "PON_AQUI_LA_URL_DE_SUPABASE",
+  anonKey: "PON_AQUI_LA_CLAVE_ANON"
+};
